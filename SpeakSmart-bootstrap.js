@@ -1,9 +1,64 @@
-/*  SpeakSmart Race-Condition-Proof Bootstrap with Marketing Safety Net */
+/*  SpeakSmart Race-Condition-Proof Bootstrap with Audio Protection */
 (function () {
   if (window.__speakSmartPatched) return;
   window.__speakSmartPatched = true;
 
-  console.log('SpeakSmart robust bootstrap loaded');
+  console.log('SpeakSmart robust bootstrap loaded with audio protection');
+
+  // ========================================================
+  // AUDIO CONTEXT PROTECTION SYSTEM
+  // ========================================================
+  const originalAudioContext = window.AudioContext || window.webkitAudioContext;
+  const activeAudioContexts = new Set();
+  
+  if (originalAudioContext) {
+    window.AudioContext = window.webkitAudioContext = function(...args) {
+      const ctx = new originalAudioContext(...args);
+      activeAudioContexts.add(ctx);
+      
+      // Prevent premature closure that interferes with main script
+      const originalClose = ctx.close;
+      ctx.close = function() {
+        console.log('🔊 AudioContext close intercepted by bootstrap');
+        // Only close if explicitly allowed by main script
+        if (window.PronCheckerState?.allowAudioContextClose) {
+          activeAudioContexts.delete(ctx);
+          console.log('🔊 AudioContext close allowed');
+          return originalClose.call(ctx);
+        }
+        console.log('🔊 AudioContext close prevented to avoid interference');
+        return Promise.resolve();
+      };
+      
+      return ctx;
+    };
+  }
+
+  // ========================================================
+  // CLEANUP PROTECTION SYSTEM
+  // ========================================================
+  function protectMainScript() {
+    // Prevent aggressive cleanup during initialization
+    const originalSetTimeout = window.setTimeout;
+    window.setTimeout = function(fn, delay, ...args) {
+      // Add safety delays to cleanup functions
+      if (fn && fn.toString && (fn.toString().includes('cleanup') || fn.toString().includes('forceCleanup'))) {
+        console.log('🛡️ Bootstrap: Adding safety delay to cleanup function');
+        delay = Math.max(delay || 0, 150);
+      }
+      return originalSetTimeout.call(window, fn, delay, ...args);
+    };
+    
+    // Protect critical intervals
+    const originalClearInterval = window.clearInterval;
+    window.clearInterval = function(id) {
+      if (window.PronCheckerState?.heartbeatInterval === id) {
+        console.log('🛡️ Bootstrap: Protected heartbeat interval from clearing');
+        return;
+      }
+      return originalClearInterval.call(window, id);
+    };
+  }
 
   // Brain animation state
   var brainState = {
@@ -17,7 +72,7 @@
     lastFlash: -Infinity,
     flickIdx: null,
     isReplacing: false,
-    prebuiltOverlay: null  // Pre-built overlay ready for instant swap
+    prebuiltOverlay: null
   };
 
   // Animation constants
@@ -25,7 +80,7 @@
   var GAP_MS = 240;
 
   /* -----------------------------------------------------------------------
-   *  Perfect Brain Animation (from your version 4, ES5 compatible)
+   *  Perfect Brain Animation (ES5 compatible)
    * -------------------------------------------------------------------- */
   function rand(a, b) {
     return Math.random() * (b - a) + a;
@@ -232,14 +287,14 @@
   }
 
   /* -----------------------------------------------------------------------
-   *  INSTANT REPLACEMENT STRATEGY: No delays, immediate swap
+   *  PROTECTED REPLACEMENT STRATEGY: Add delays to prevent interference
    * -------------------------------------------------------------------- */
-  function instantReplacement(grayCircle) {
-    console.log('Attempting INSTANT replacement of gray circle');
+  function protectedReplacement(grayCircle) {
+    console.log('Attempting PROTECTED replacement of gray circle');
 
     // Quick validation
     if (!grayCircle || !grayCircle.parentNode) {
-      console.log('Gray circle already gone, instant replacement aborted');
+      console.log('Gray circle already gone, protected replacement aborted');
       return false;
     }
 
@@ -249,31 +304,55 @@
       return false;
     }
 
+    // Mark as being replaced to prevent multiple attempts
+    if (brainState.isReplacing) {
+      console.log('Replacement already in progress, skipping');
+      return false;
+    }
+    brainState.isReplacing = true;
+
     try {
-      // Use pre-built overlay for instant swap
+      // Use pre-built overlay for faster swap
       var brainOverlay = brainState.prebuiltOverlay;
       if (!brainOverlay) {
         brainOverlay = buildBrainOverlay();
       }
 
-      // INSTANT replacement - no setTimeout
-      grayCircle.parentNode.replaceChild(brainOverlay, grayCircle);
-      
-      brainState.overlay = brainOverlay;
-      startBrainAnimation(brainState.canvas);
-      
-      console.log('INSTANT brain replacement successful!');
-      
-      // Pre-build next overlay for subsequent attempts
+      // CRITICAL: Add protective delay to prevent race conditions
       setTimeout(function() {
-        if (!brainState.prebuiltOverlay || brainState.prebuiltOverlay === brainOverlay) {
-          buildBrainOverlay();
+        try {
+          // Double-check the element still exists
+          if (!grayCircle.parentNode) {
+            console.log('Gray circle removed during delay, aborting replacement');
+            brainState.isReplacing = false;
+            return;
+          }
+
+          grayCircle.parentNode.replaceChild(brainOverlay, grayCircle);
+          
+          brainState.overlay = brainOverlay;
+          startBrainAnimation(brainState.canvas);
+          
+          console.log('PROTECTED brain replacement successful!');
+          
+          // Pre-build next overlay for subsequent attempts
+          setTimeout(function() {
+            if (!brainState.prebuiltOverlay || brainState.prebuiltOverlay === brainOverlay) {
+              buildBrainOverlay();
+            }
+            brainState.isReplacing = false;
+          }, 200);
+          
+        } catch (error) {
+          console.log('Protected replacement failed during execution:', error.message);
+          brainState.isReplacing = false;
         }
-      }, 100);
+      }, 150); // 150ms protective delay
       
       return true;
     } catch (error) {
-      console.log('Instant replacement failed:', error.message);
+      console.log('Protected replacement failed:', error.message);
+      brainState.isReplacing = false;
       return false;
     }
   }
@@ -321,7 +400,7 @@
           console.log('No brain animation detected after pronunciation start - triggering marketing display');
           showMarketingBrainAnimation();
         }
-      }, 200);
+      }, 300); // Increased delay for safety
     }
   };
 
@@ -343,15 +422,15 @@
         clearInterval(monitoringInterval);
         monitoringInterval = null;
         
-        if (instantReplacement(grayCircle)) {
+        if (protectedReplacement(grayCircle)) {
           // Success - restart monitoring for next time
-          setTimeout(startBackupMonitoring, 1000);
+          setTimeout(startBackupMonitoring, 1500);
         } else {
           // Failed - try again soon
-          setTimeout(startBackupMonitoring, 100);
+          setTimeout(startBackupMonitoring, 300);
         }
       }
-    }, 10); // Check every 10ms during active periods
+    }, 20); // Slightly slower monitoring to reduce interference
   }
 
   function stopBackupMonitoring() {
@@ -363,7 +442,7 @@
   }
 
   /* -----------------------------------------------------------------------
-   *  ENHANCED DOM OBSERVER: Multi-level watching
+   *  ENHANCED DOM OBSERVER: Multi-level watching with protection
    * -------------------------------------------------------------------- */
   var primaryObserver = new MutationObserver(function (mutations) {
     mutations.forEach(function (m) {
@@ -371,14 +450,16 @@
         if (node.nodeType !== 1) return;
         
         if (node.id === 'pronunciation-loading-overlay') {
-          // IMMEDIATE attempt - no delays
-          if (instantReplacement(node)) {
-            // Success - start backup monitoring for subsequent attempts
-            setTimeout(startBackupMonitoring, 500);
-          } else {
-            // Failed - start aggressive backup monitoring immediately
-            startBackupMonitoring();
-          }
+          // Use protected replacement with delay
+          setTimeout(function() {
+            if (protectedReplacement(node)) {
+              // Success - start backup monitoring for subsequent attempts
+              setTimeout(startBackupMonitoring, 800);
+            } else {
+              // Failed - start aggressive backup monitoring immediately
+              startBackupMonitoring();
+            }
+          }, 50); // Small delay to let DOM settle
         }
       });
 
@@ -392,7 +473,7 @@
           } else {
             console.log('Gray circle removed - preparing for next attempt');
             // Start monitoring in case another appears soon
-            setTimeout(startBackupMonitoring, 100);
+            setTimeout(startBackupMonitoring, 200);
           }
         }
       });
@@ -407,11 +488,15 @@
         
         // Look for the target element in the added subtree
         if (node.id === 'pronunciation-loading-overlay') {
-          instantReplacement(node);
+          setTimeout(function() {
+            protectedReplacement(node);
+          }, 75);
         } else if (node.querySelector) {
           var grayCircle = node.querySelector('#pronunciation-loading-overlay:not(.speaksmart-brain-overlay)');
           if (grayCircle) {
-            instantReplacement(grayCircle);
+            setTimeout(function() {
+              protectedReplacement(grayCircle);
+            }, 100);
           }
         }
       });
@@ -446,16 +531,19 @@
     // Rebuild overlay for next attempt
     setTimeout(function() {
       buildBrainOverlay();
-    }, 200);
+    }, 300);
     
     console.log('Cleanup complete - ready for next attempt');
   }
 
   /* -----------------------------------------------------------------------
-   *  INITIALIZATION: Start all monitoring systems
+   *  INITIALIZATION: Start all monitoring systems with protection
    * -------------------------------------------------------------------- */
   function startAllMonitoring() {
     if (document.body) {
+      // Initialize protection systems first
+      protectMainScript();
+      
       // Primary observer on body
       primaryObserver.observe(document.body, { 
         childList: true, 
@@ -471,14 +559,14 @@
       // Pre-build first overlay
       buildBrainOverlay();
       
-      console.log('Multi-layer monitoring system active');
+      console.log('Multi-layer monitoring system active with protection');
     } else {
       document.addEventListener('DOMContentLoaded', startAllMonitoring);
     }
   }
 
-  // Initialize the robust system
+  // Initialize the robust system with protection
   startAllMonitoring();
   
-  console.log('SpeakSmart race-condition-proof bootstrap with marketing safety net ready');
+  console.log('SpeakSmart race-condition-proof bootstrap with audio protection ready');
 })();
