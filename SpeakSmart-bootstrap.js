@@ -13,7 +13,7 @@
   /* ------------------------------------------------------
    *  Constants
    * --------------------------------------------------- */
-  const READING_BUNDLE_URL = 'speaksmart-reading-gpt.js';   // adjust path if needed
+  const READING_BUNDLE_URL = 'https://gentle-oasis-39918-1e4e956035a8.herokuapp.com/speaksmart-reading-gpt.js';   // adjust path if needed
   const FLASH_MS = 90;
   const GAP_MS   = 240;
 
